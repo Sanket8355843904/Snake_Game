@@ -1,7 +1,7 @@
 import streamlit as st
-import time
 from PIL import Image, ImageDraw
 import random
+import time
 
 # Constants
 GRID_SIZE = 20
@@ -62,49 +62,62 @@ if "snake" not in st.session_state:
     st.session_state.direction = "LEFT"
     st.session_state.score = 0
     st.session_state.running = False
+    st.session_state.last_update = time.time()
 
 st.title("🐍 Nokia-Style Snake Game")
+
 difficulty = st.selectbox("Choose Difficulty", ["Easy", "Medium", "Hard"])
 
 if st.button("Start Game"):
     st.session_state.running = True
+    st.session_state.snake = [(10, 10), (10, 11), (10, 12)]
+    st.session_state.food = place_food(st.session_state.snake)
+    st.session_state.direction = "LEFT"
+    st.session_state.score = 0
+    st.session_state.last_update = time.time()
 
-# Arrow keys
+# Direction controls
 col1, col2, col3 = st.columns([1,1,1])
 with col1:
-    if st.button("⬅️"):
-        if st.session_state.direction != "RIGHT":
-            st.session_state.direction = "LEFT"
+    if st.button("⬅️") and st.session_state.direction != "RIGHT":
+        st.session_state.direction = "LEFT"
 with col2:
-    if st.button("⬆️"):
-        if st.session_state.direction != "DOWN":
-            st.session_state.direction = "UP"
-    if st.button("⬇️"):
-        if st.session_state.direction != "UP":
-            st.session_state.direction = "DOWN"
+    if st.button("⬆️") and st.session_state.direction != "DOWN":
+        st.session_state.direction = "UP"
+    if st.button("⬇️") and st.session_state.direction != "UP":
+        st.session_state.direction = "DOWN"
 with col3:
-    if st.button("➡️"):
-        if st.session_state.direction != "LEFT":
-            st.session_state.direction = "RIGHT"
+    if st.button("➡️") and st.session_state.direction != "LEFT":
+        st.session_state.direction = "RIGHT"
 
+# Game loop update every SPEED_MAP[difficulty] seconds
 if st.session_state.running:
-    snake = st.session_state.snake
-    new_head = move_snake(st.session_state.direction, snake)
+    now = time.time()
+    if now - st.session_state.last_update > SPEED_MAP[difficulty]:
+        st.session_state.last_update = now
+        snake = st.session_state.snake
+        new_head = move_snake(st.session_state.direction, snake)
 
-    # Game over conditions
-    if (new_head in snake or
-        not (0 <= new_head[0] < GRID_SIZE and 0 <= new_head[1] < GRID_SIZE)):
-        st.write(f"### Game Over! Your Score: {st.session_state.score}")
-        st.session_state.running = False
-    else:
-        snake.insert(0, new_head)
-        if new_head == st.session_state.food:
-            st.session_state.food = place_food(snake)
-            st.session_state.score += 1
+        # Check game over
+        if (new_head in snake or
+            not (0 <= new_head[0] < GRID_SIZE and 0 <= new_head[1] < GRID_SIZE)):
+            st.write(f"### Game Over! Your Score: {st.session_state.score}")
+            st.session_state.running = False
         else:
-            snake.pop()
+            snake.insert(0, new_head)
+            if new_head == st.session_state.food:
+                st.session_state.food = place_food(snake)
+                st.session_state.score += 1
+            else:
+                snake.pop()
 
-    img = draw_board(snake, st.session_state.food)
+        st.session_state.snake = snake
+
+    img = draw_board(st.session_state.snake, st.session_state.food)
     st.image(img)
-    time.sleep(SPEED_MAP[difficulty])
-    st.rerun()
+    st.write(f"Score: {st.session_state.score}")
+
+    # Rerun app to update continuously
+    st.experimental_rerun()
+else:
+    st.write("Press Start Game to play!")
