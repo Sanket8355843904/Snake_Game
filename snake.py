@@ -1,22 +1,26 @@
 import streamlit as st
 import random
 import time
+from streamlit_autorefresh import st_autorefresh
 
-# Game configuration
+# --- Game settings ---
 GRID_SIZE = 10
+UPDATE_INTERVAL_MS = 300  # Snake moves every 300 ms
 SNAKE_COLOR = "green"
 FOOD_COLOR = "red"
 EMPTY_COLOR = "white"
-UPDATE_DELAY = 0.2  # Seconds
 
-# Initialize session state
+# --- Auto-refresh ---
+st_autorefresh(interval=UPDATE_INTERVAL_MS, key="snake_refresh")
+
+# --- Initialize game state ---
 if "snake" not in st.session_state:
     st.session_state.snake = [(5, 5)]
     st.session_state.food = (random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1))
     st.session_state.direction = "RIGHT"
     st.session_state.game_over = False
 
-# Functions
+# --- Move Snake ---
 def move_snake():
     if st.session_state.game_over:
         return
@@ -49,6 +53,7 @@ def move_snake():
     else:
         st.session_state.snake.pop(0)
 
+# --- Draw the board ---
 def draw_board():
     board = ""
     for i in range(GRID_SIZE):
@@ -63,18 +68,17 @@ def draw_board():
         board += row + "\n"
     st.markdown(board)
 
-def change_direction(new_direction):
-    # Prevent snake from going directly opposite
+# --- Direction control ---
+def change_direction(new_dir):
     opposite = {"UP": "DOWN", "DOWN": "UP", "LEFT": "RIGHT", "RIGHT": "LEFT"}
-    if new_direction != opposite.get(st.session_state.direction):
-        st.session_state.direction = new_direction
-        move_snake()
+    if new_dir != opposite.get(st.session_state.direction):
+        st.session_state.direction = new_dir
 
-# UI
-st.title("🐍 Streamlit Snake Game")
+# --- UI ---
+st.title("🐍 Real-Time Snake Game (Streamlit)")
 
 if st.session_state.game_over:
-    st.error("Game Over! Refresh to restart.")
+    st.error("💀 Game Over! Refresh to restart.")
 else:
     col1, col2, col3 = st.columns(3)
     with col2:
@@ -88,3 +92,4 @@ else:
         st.button("➡️", on_click=lambda: change_direction("RIGHT"))
 
     draw_board()
+    move_snake()
