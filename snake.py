@@ -1,95 +1,110 @@
 import streamlit as st
-import random
 import time
-from streamlit_autorefresh import st_autorefresh
+from PIL import Image, ImageDraw
+import random
 
-# --- Game settings ---
-GRID_SIZE = 10
-UPDATE_INTERVAL_MS = 300  # Snake moves every 300 ms
-SNAKE_COLOR = "green"
-FOOD_COLOR = "red"
-EMPTY_COLOR = "white"
+# Constants
+GRID_SIZE = 20
+CELL_SIZE = 20
+IMAGE_SIZE = GRID_SIZE * CELL_SIZE
+SPEED_MAP = {"Easy": 0.3, "Medium": 0.15, "Hard": 0.08}
 
-# --- Auto-refresh ---
-st_autorefresh(interval=UPDATE_INTERVAL_MS, key="snake_refresh")
+def draw_board(snake, food):
+    img = Image.new('RGB', (IMAGE_SIZE, IMAGE_SIZE), color=(0, 128, 0))
+    draw = ImageDraw.Draw(img)
 
-# --- Initialize game state ---
-if "snake" not in st.session_state:
-    st.session_state.snake = [(5, 5)]
-    st.session_state.food = (random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1))
-    st.session_state.direction = "RIGHT"
-    st.session_state.game_over = False
-
-# --- Move Snake ---
-def move_snake():
-    if st.session_state.game_over:
-        return
-
-    head_x, head_y = st.session_state.snake[-1]
-    dx, dy = {
-        "UP": (-1, 0),
-        "DOWN": (1, 0),
-        "LEFT": (0, -1),
-        "RIGHT": (0, 1)
-    }[st.session_state.direction]
-
-    new_head = (head_x + dx, head_y + dy)
-
-    # Collision detection
-    if (new_head in st.session_state.snake or
-        not (0 <= new_head[0] < GRID_SIZE) or
-        not (0 <= new_head[1] < GRID_SIZE)):
-        st.session_state.game_over = True
-        return
-
-    st.session_state.snake.append(new_head)
-
-    if new_head == st.session_state.food:
-        while True:
-            new_food = (random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1))
-            if new_food not in st.session_state.snake:
-                break
-        st.session_state.food = new_food
-    else:
-        st.session_state.snake.pop(0)
-
-# --- Draw the board ---
-def draw_board():
-    board = ""
     for i in range(GRID_SIZE):
-        row = ""
         for j in range(GRID_SIZE):
-            if (i, j) in st.session_state.snake:
-                row += f":{SNAKE_COLOR}_square:"
-            elif (i, j) == st.session_state.food:
-                row += f":{FOOD_COLOR}_square:"
-            else:
-                row += f":{EMPTY_COLOR}_square:"
-        board += row + "\n"
-    st.markdown(board)
+            x0 = j * CELL_SIZE
+            y0 = i * CELL_SIZE
+            x1 = x0 + CELL_SIZE - 1
+            y1 = y0 + CELL_SIZE - 1
+            draw.rectangle([x0, y0, x1, y1], outline=(0, 100, 0))
 
-# --- Direction control ---
-def change_direction(new_dir):
-    opposite = {"UP": "DOWN", "DOWN": "UP", "LEFT": "RIGHT", "RIGHT": "LEFT"}
-    if new_dir != opposite.get(st.session_state.direction):
-        st.session_state.direction = new_dir
+    for y, x in snake:
+        x0 = x * CELL_SIZE
+        y0 = y * CELL_SIZE
+        x1 = x0 + CELL_SIZE - 1
+        y1 = y0 + CELL_SIZE - 1
+        draw.rectangle([x0, y0, x1, y1], fill=(0, 0, 0))
 
-# --- UI ---
-st.title("🐍 Real-Time Snake Game (Streamlit)")
+    fy, fx = food
+    x0 = fx * CELL_SIZE
+    y0 = fy * CELL_SIZE
+    x1 = x0 + CELL_SIZE - 1
+    y1 = y0 + CELL_SIZE - 1
+    draw.rectangle([x0, y0, x1, y1], fill=(255, 255, 255))
 
-if st.session_state.game_over:
-    st.error("💀 Game Over! Refresh to restart.")
-else:
-    col1, col2, col3 = st.columns(3)
-    with col2:
-        st.button("⬆️", on_click=lambda: change_direction("UP"))
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.button("⬅️", on_click=lambda: change_direction("LEFT"))
-    with col2:
-        st.button("⬇️", on_click=lambda: change_direction("DOWN"))
-    with col3:
-        st.button("➡️", on_click=lambda: change_direction("RIGHT"))
+    return img
 
-    draw_board()
-    move_snake()
+def move_snake(direction, snake):
+    head_y, head_x = snake[0]
+    if direction == "UP":
+        head_y -= 1
+    elif direction == "DOWN":
+        head_y += 1
+    elif direction == "LEFT":
+        head_x -= 1
+    elif direction == "RIGHT":
+        head_x += 1
+    return (head_y, head_x)
+
+def place_food(snake):
+    while True:
+        pos = (random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1))
+        if pos not in snake:
+            return pos
+
+# Initialize session state
+if "snake" not in st.session_state:
+    st.session_state.snake = [(10, 10), (10, 11), (10, 12)]
+    st.session_state.food = place_food(st.session_state.snake)
+    st.session_state.direction = "LEFT"
+    st.session_state.score = 0
+    st.session_state.running = False
+
+st.title("🐍 Nokia-Style Snake Game")
+difficulty = st.selectbox("Choose Difficulty", ["Easy", "Medium", "Hard"])
+
+if st.button("Start Game"):
+    st.session_state.running = True
+
+# Arrow keys
+col1, col2, col3 = st.columns([1,1,1])
+with col1:
+    if st.button("⬅️"):
+        if st.session_state.direction != "RIGHT":
+            st.session_state.direction = "LEFT"
+with col2:
+    if st.button("⬆️"):
+        if st.session_state.direction != "DOWN":
+            st.session_state.direction = "UP"
+    if st.button("⬇️"):
+        if st.session_state.direction != "UP":
+            st.session_state.direction = "DOWN"
+with col3:
+    if st.button("➡️"):
+        if st.session_state.direction != "LEFT":
+            st.session_state.direction = "RIGHT"
+
+if st.session_state.running:
+    snake = st.session_state.snake
+    new_head = move_snake(st.session_state.direction, snake)
+
+    # Game over conditions
+    if (new_head in snake or
+        not (0 <= new_head[0] < GRID_SIZE and 0 <= new_head[1] < GRID_SIZE)):
+        st.write(f"### Game Over! Your Score: {st.session_state.score}")
+        st.session_state.running = False
+    else:
+        snake.insert(0, new_head)
+        if new_head == st.session_state.food:
+            st.session_state.food = place_food(snake)
+            st.session_state.score += 1
+        else:
+            snake.pop()
+
+    img = draw_board(snake, st.session_state.food)
+    st.image(img)
+    time.sleep(SPEED_MAP[difficulty])
+    st.rerun()
