@@ -1,123 +1,104 @@
 import streamlit as st
-from PIL import Image, ImageDraw
 import random
-import time
+from PIL import Image, ImageDraw
 
 # Constants
-GRID_SIZE = 20
-CELL_SIZE = 20
-IMAGE_SIZE = GRID_SIZE * CELL_SIZE
-SPEED_MAP = {"Easy": 0.3, "Medium": 0.15, "Hard": 0.08}
+BOARD_SIZE = 15  # 15x15 grid for Ludo
+CELL_SIZE = 30
+IMAGE_SIZE = BOARD_SIZE * CELL_SIZE
 
-def draw_board(snake, food):
-    img = Image.new('RGB', (IMAGE_SIZE, IMAGE_SIZE), color=(0, 128, 0))
+# Player colors and starting positions (one token per player for demo)
+players = {
+    "Red": {"color": (255, 0, 0), "start_pos": (1, 1)},
+    "Green": {"color": (0, 255, 0), "start_pos": (1, 13)},
+    "Yellow": {"color": (255, 255, 0), "start_pos": (13, 13)},
+    "Blue": {"color": (0, 0, 255), "start_pos": (13, 1)}
+}
+
+# Simple path for demonstration (around the border cells clockwise)
+path = [
+    (1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(1,8),(1,9),(1,10),(1,11),(1,12),(1,13),
+    (2,13),(3,13),(4,13),(5,13),(6,13),(7,13),(8,13),(9,13),(10,13),(11,13),(12,13),(13,13),
+    (13,12),(13,11),(13,10),(13,9),(13,8),(13,7),(13,6),(13,5),(13,4),(13,3),(13,2),(13,1),
+    (12,1),(11,1),(10,1),(9,1),(8,1),(7,1),(6,1),(5,1),(4,1),(3,1),(2,1)
+]
+
+def draw_board(player_positions):
+    img = Image.new('RGB', (IMAGE_SIZE, IMAGE_SIZE), 'white')
     draw = ImageDraw.Draw(img)
 
-    for i in range(GRID_SIZE):
-        for j in range(GRID_SIZE):
-            x0 = j * CELL_SIZE
-            y0 = i * CELL_SIZE
-            x1 = x0 + CELL_SIZE - 1
-            y1 = y0 + CELL_SIZE - 1
-            draw.rectangle([x0, y0, x1, y1], outline=(0, 100, 0))
+    # Draw grid
+    for i in range(BOARD_SIZE):
+        for j in range(BOARD_SIZE):
+            x0, y0 = j*CELL_SIZE, i*CELL_SIZE
+            x1, y1 = x0+CELL_SIZE, y0+CELL_SIZE
 
-    for y, x in snake:
-        x0 = x * CELL_SIZE
-        y0 = y * CELL_SIZE
-        x1 = x0 + CELL_SIZE - 1
-        y1 = y0 + CELL_SIZE - 1
-        draw.rectangle([x0, y0, x1, y1], fill=(0, 0, 0))
+            # Fill starting corners with player colors
+            if (i, j) == (1,1):
+                draw.rectangle([x0, y0, x1, y1], fill=players["Red"]["color"])
+            elif (i, j) == (1,13):
+                draw.rectangle([x0, y0, x1, y1], fill=players["Green"]["color"])
+            elif (i, j) == (13,13):
+                draw.rectangle([x0, y0, x1, y1], fill=players["Yellow"]["color"])
+            elif (i, j) == (13,1):
+                draw.rectangle([x0, y0, x1, y1], fill=players["Blue"]["color"])
+            else:
+                draw.rectangle([x0, y0, x1, y1], outline='gray')
 
-    fy, fx = food
-    x0 = fx * CELL_SIZE
-    y0 = fy * CELL_SIZE
-    x1 = x0 + CELL_SIZE - 1
-    y1 = y0 + CELL_SIZE - 1
-    draw.rectangle([x0, y0, x1, y1], fill=(255, 255, 255))
+    # Draw players
+    for player, pos_idx in player_positions.items():
+        if pos_idx is not None and 0 <= pos_idx < len(path):
+            y, x = path[pos_idx]
+            cx = x * CELL_SIZE + CELL_SIZE//2
+            cy = y * CELL_SIZE + CELL_SIZE//2
+            r = CELL_SIZE//3
+            draw.ellipse([cx-r, cy-r, cx+r, cy+r], fill=players[player]["color"])
 
     return img
 
-def move_snake(direction, snake):
-    head_y, head_x = snake[0]
-    if direction == "UP":
-        head_y -= 1
-    elif direction == "DOWN":
-        head_y += 1
-    elif direction == "LEFT":
-        head_x -= 1
-    elif direction == "RIGHT":
-        head_x += 1
-    return (head_y, head_x)
-
-def place_food(snake):
-    while True:
-        pos = (random.randint(0, GRID_SIZE - 1), random.randint(0, GRID_SIZE - 1))
-        if pos not in snake:
-            return pos
-
 # Initialize session state
-if "snake" not in st.session_state:
-    st.session_state.snake = [(10, 10), (10, 11), (10, 12)]
-    st.session_state.food = place_food(st.session_state.snake)
-    st.session_state.direction = "LEFT"
-    st.session_state.score = 0
-    st.session_state.running = False
-    st.session_state.last_update = time.time()
+if "player_positions" not in st.session_state:
+    st.session_state.player_positions = {p: None for p in players}  # None means at start, not on path
+if "current_player" not in st.session_state:
+    st.session_state.current_player = "Red"
+if "dice_roll" not in st.session_state:
+    st.session_state.dice_roll = 0
 
-st.title("🐍 Nokia-Style Snake Game")
+st.title("🎲 Simple 4-Player Ludo (Demo)")
 
-difficulty = st.selectbox("Choose Difficulty", ["Easy", "Medium", "Hard"])
+st.write(f"**Current Player:** {st.session_state.current_player}")
+st.write(f"**Last Dice Roll:** {st.session_state.dice_roll}")
 
-if st.button("Start Game"):
-    st.session_state.running = True
-    st.session_state.snake = [(10, 10), (10, 11), (10, 12)]
-    st.session_state.food = place_food(st.session_state.snake)
-    st.session_state.direction = "LEFT"
-    st.session_state.score = 0
-    st.session_state.last_update = time.time()
+if st.button("Roll Dice 🎲"):
+    roll = random.randint(1, 6)
+    st.session_state.dice_roll = roll
+    player = st.session_state.current_player
+    pos = st.session_state.player_positions[player]
 
-# Direction controls
-col1, col2, col3 = st.columns([1,1,1])
-with col1:
-    if st.button("⬅️") and st.session_state.direction != "RIGHT":
-        st.session_state.direction = "LEFT"
-with col2:
-    if st.button("⬆️") and st.session_state.direction != "DOWN":
-        st.session_state.direction = "UP"
-    if st.button("⬇️") and st.session_state.direction != "UP":
-        st.session_state.direction = "DOWN"
-with col3:
-    if st.button("➡️") and st.session_state.direction != "LEFT":
-        st.session_state.direction = "RIGHT"
-
-# Game loop update every SPEED_MAP[difficulty] seconds
-if st.session_state.running:
-    now = time.time()
-    if now - st.session_state.last_update > SPEED_MAP[difficulty]:
-        st.session_state.last_update = now
-        snake = st.session_state.snake
-        new_head = move_snake(st.session_state.direction, snake)
-
-        # Check game over
-        if (new_head in snake or
-            not (0 <= new_head[0] < GRID_SIZE and 0 <= new_head[1] < GRID_SIZE)):
-            st.write(f"### Game Over! Your Score: {st.session_state.score}")
-            st.session_state.running = False
+    # If player not started, only start moving if roll == 6
+    if pos is None:
+        if roll == 6:
+            st.session_state.player_positions[player] = 0
+            st.success(f"{player} entered the board!")
         else:
-            snake.insert(0, new_head)
-            if new_head == st.session_state.food:
-                st.session_state.food = place_food(snake)
-                st.session_state.score += 1
-            else:
-                snake.pop()
+            st.info(f"{player} needs a 6 to enter the board.")
+    else:
+        # Move forward roll steps, looping path if needed
+        new_pos = (pos + roll) % len(path)
+        st.session_state.player_positions[player] = new_pos
+        st.success(f"{player} moved {roll} steps.")
 
-        st.session_state.snake = snake
+    # Switch turn unless roll was 6 (player gets extra turn)
+    if roll != 6:
+        players_list = list(players.keys())
+        current_idx = players_list.index(player)
+        next_idx = (current_idx + 1) % len(players_list)
+        st.session_state.current_player = players_list[next_idx]
 
-    img = draw_board(st.session_state.snake, st.session_state.food)
-    st.image(img)
-    st.write(f"Score: {st.session_state.score}")
+# Draw board with current positions
+board_img = draw_board(st.session_state.player_positions)
+st.image(board_img, width=IMAGE_SIZE)
 
-    # Rerun app to update continuously
-    st.experimental_rerun()
-else:
-    st.write("Press Start Game to play!")
+st.write("**Legend:**")
+for p in players:
+    st.markdown(f"- <span style='color: rgb{players[p]['color']}; font-weight:bold;'>{p}</span>", unsafe_allow_html=True)
